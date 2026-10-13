@@ -6,7 +6,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(OpenCV CONFIG REQUIRED)
 
-# --- Manual ONNX Runtime setup (official prebuilt, not vcpkg) ---
 set(ORT_ROOT "C:/Users/Sukhada/libs/onnxruntime-win-x64-1.25.0")
 
 add_executable(inference src/main.cpp src/segmentation.cpp)
@@ -21,10 +20,6 @@ target_link_libraries(inference PRIVATE
     ${ORT_ROOT}/lib/onnxruntime.lib
 )
 
-# Copy the DLL next to the .exe after build — onnxruntime.dll is loaded
-# at RUNTIME (dynamic linking), not embedded into inference.exe, so it
-# must physically sit beside the .exe or be on PATH, or you'll get a
-# "missing DLL" error at launch even though the build succeeds.
 add_custom_command(TARGET inference POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${ORT_ROOT}/lib/onnxruntime.dll"
