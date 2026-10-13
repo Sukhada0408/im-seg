@@ -34,54 +34,42 @@ int main()
     int frameCount = 0;
 
     while (cap.read(frame)) {
-        // cap.read(frame) returns false when the video ends — this
-        // doubles as both "read next frame" and "are we done" in one call,
-        // similar to Python's `while ret: ret, frame = cap.read()` pattern
-        // but folded into the loop condition itself.
+        // cap.read(frame) returns false when the video ends. This is to read next frame or indicate that
+        // inferencing is finished.
 
         if (frame.empty()) {
             std::cerr << "WARNING: empty frame at index " << frameCount << ", skipping\n";
             continue;
         }
 
-        // --- Run the full pipeline: preprocess -> infer -> postprocess -> colorize ---
         cv::Mat coloredMask = segInfer.infer(frame);
         latencies.push_back(segInfer.getLastLatencyMs()); // see note below
 
-        // --- Resize mask back up to original frame resolution for overlay ---
-        // Your model runs at fixed 384x768, but the source video is
-        // almost certainly a different resolution. Resize the COLORED
-        // mask (not the raw class map!) back up using nearest-neighbor,
-        // so class boundaries stay crisp instead of blurring across
-        // class colors during interpolation.
         cv::Mat maskResized;
         cv::resize(coloredMask, maskResized, frame.size(), 0, 0, cv::INTER_NEAREST);
 
-        // --- Blend original frame + segmentation mask ---
+        // Blend original frame + segmentation mask
         cv::Mat overlay;
         cv::addWeighted(frame, 0.6, maskResized, 0.8, 0.0, overlay);
 
-        // --- Display + write ---
+        // Display and write the output
         cv::imshow("Fast-SCNN Segmentation", overlay);
         writer.write(overlay);
 
         ++frameCount;
 
-        // waitKey(1) both drives the GUI event loop AND lets you break
-        // early on 'q' — without SOME waitKey call, imshow() won't
-        // actually render anything to the window.
         if (cv::waitKey(1) == 'q') {
             std::cout << "Interrupted by user at frame " << frameCount << "\n";
             break;
         }
     } 
     
-    // --- Cleanup ---
+    // Cleanup
     cap.release();
     writer.release();
     cv::destroyAllWindows();
 
-    // --- Latency summary, same spirit as your LaneDetector timing prints ---
+    // Latency summary
     if (!latencies.empty()) {
         double avg = std::accumulate(latencies.begin(), latencies.end(), 0.0) / latencies.size();
         double maxLat = *std::max_element(latencies.begin(), latencies.end());
