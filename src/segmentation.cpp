@@ -17,7 +17,7 @@ SegmentationInference::SegmentationInference(const std::string& modelPath)
     catch (const Ort::Exception& e) {
         std::cerr << "ONNX Runtime load failed. Code: " << e.GetOrtErrorCode()
                 << "  Message: " << e.what() << std::endl;
-        throw; // rethrow so it's still a hard failure, but now you've printed the detail first
+        throw;
     }
 
     Ort::AllocatorWithDefaultOptions allocator;
@@ -39,36 +39,26 @@ SegmentationInference::SegmentationInference(const std::string& modelPath)
 }
 
 std::vector<float> SegmentationInference::preprocess(const cv::Mat& frame) {
-    // TODO 1: resize frame to cv::Size(kInputW, kInputH) using cv::resize
-    //         — INTER_LINEAR is fine, this is downsampling in most AD camera feeds
+    // Resize frame
     cv::Mat resized_frame;
     cv::resize(frame, resized_frame, cv::Size(kInputW, kInputH));
 
-    // TODO 2: convert BGR -> RGB (cv::cvtColor), since the PyTorch model
-    //         was trained on RGB tensors (ImageNet convention), OpenCV loads BGR
+    // Convert BGR to RGB
     cv::cvtColor(resized_frame, resized_frame, cv::COLOR_BGR2RGB);
 
-    // TODO 3: convert to float32 and scale pixel values from [0,255] to [0,1]
-    //         (resized.convertTo(floatImg, CV_32FC3, 1.0/255.0))
+    // Convert to float and scale pixel values
     cv::Mat floatImg;
     resized_frame.convertTo(floatImg, CV_32FC3, 1.0/255.0);
 
-    // TODO 4: normalize per-channel using Cityscapes/ImageNet mean-std:
-    //         mean = {0.485, 0.456, 0.406}, std = {0.229, 0.224, 0.225}
-    //         applied per-channel: (pixel - mean[c]) / std[c]
+    // Normalize per-channel using Cityscapes/ImageNet mean-std
     cv::Scalar mean = {0.485, 0.456, 0.406};
     cv::Scalar std = {0.229, 0.224, 0.225};
     floatImg -= mean;
     floatImg /= std;
 
-    // TODO 5: convert HWC (OpenCV's native layout) -> CHW (what the ONNX
-    //         graph expects, since PyTorch tensors are channel-first).
-    //         This is a manual index remap, NOT a reshape — reshape would
-    //         scramble the data since memory layout actually changes.
-    //         out[c * H * W + h * W + w] = in.at<cv::Vec3f>(h, w)[c]
+    // TODO 5: convert HWC to CHW
 
     std::vector<float> tensorData(1 * 3 * kInputH * kInputW);
-    // ... fill tensorData per above ...
     const int planeSize = kInputH*kInputW;
     for (int h=0; h<kInputH; ++h)
     {
@@ -87,9 +77,7 @@ std::vector<float> SegmentationInference::preprocess(const cv::Mat& frame) {
 
 Ort::Value SegmentationInference::runInference(std::vector<float>& inputTensorValues) {
     std::array<int64_t, 4> inputShape{1, 3, kInputH, kInputW};
-
-    // CreateTensor does NOT copy inputTensorValues — it wraps the pointer.
-    // inputTensorValues must outlive this Ort::Value.
+    
     Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
         memoryInfo_,
         inputTensorValues.data(), inputTensorValues.size(),
@@ -105,14 +93,13 @@ Ort::Value SegmentationInference::runInference(std::vector<float>& inputTensorVa
         outputNames, 1
     );
 
-    // outputTensors is a std::vector<Ort::Value>; we asked for 1 output
+    
     return std::move(outputTensors[0]);
 }
 
 cv::Mat SegmentationInference::postprocess(const Ort::Value& outputTensor) {
     const float* data = outputTensor.GetTensorData<float>();
-    // data layout: [class][h][w], row-major, since NCHW with N=1
-
+    
     cv::Mat classMap(kInputH, kInputW, CV_8UC1);
 
     const int planeSize = kInputH * kInputW; // stride between class channels
@@ -122,8 +109,7 @@ cv::Mat SegmentationInference::postprocess(const Ort::Value& outputTensor) {
             float maxVal = data[0 * planeSize + h * kInputW + w];
             int maxClass = 0;
 
-            // manual argmax across 19 channels — no std::max_element here
-            // on purpose: keeping the index math explicit while it's new
+
             for (int c = 1; c < kNumClasses; ++c) {
                 float val = data[c * planeSize + h * kInputW + w];
                 if (val > maxVal) {
@@ -138,13 +124,7 @@ cv::Mat SegmentationInference::postprocess(const Ort::Value& outputTensor) {
 }
 
 cv::Mat SegmentationInference::colorize(const cv::Mat& classMap) {
-    // TODO: build a static 19-entry BGR color table (Cityscapes palette,
-    // easy to find online) as a cv::Vec3b array, then map:
-    //   colored.at<cv::Vec3b>(h,w) = palette[classMap.at<uint8_t>(h,w)]
-    // for every pixel. This is a manual LUT application — cv::LUT() only
-    // works per-channel independently, not for a 3-channel-out-of-1-channel-in
-    // mapping like this, so a nested loop (or cv::applyColorMap for a
-    // built-in palette as a fallback) is the correct tool here.
+    // build a static 19-entry BGR color table (Cityscapes palette)
     static const std::array<cv::Vec3b, 19> palette = {{
         {128u,  64u, 128u},   // road          =   0u
          {244u,  35u, 232u},   // sidewalk      =   1u
