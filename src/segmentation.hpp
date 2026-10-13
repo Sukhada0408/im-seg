@@ -26,7 +26,7 @@ private:
     Ort::MemoryInfo memoryInfo_;
     Ort::SessionOptions sessionOption_;
 
-    // fixed model I/O shape — Fast-SCNN is NOT dynamic on H/W, remember
+    // fixed model i/o shape
     static constexpr int64_t kInputH = 384;
     static constexpr int64_t kInputW = 768;
     static constexpr int64_t kNumClasses = 19;
@@ -34,5 +34,5 @@ private:
     std::string inputName_;
     std::string outputName_;
 
-    double lastLatencyMs_ = 0.0; // set inside infer(), like your LaneDetector timing
+    double lastLatencyMs_ = 0.0; // set inside infer()
 };
