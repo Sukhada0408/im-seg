@@ -33,6 +33,23 @@ Pixel-wise Class Predictions
     v
 Segmentation Output
 ```
+## Output
+For image size 384x768
+
+https://github.com/user-attachments/assets/7bebd91e-8b2c-448d-b958-4f23160a45f2
+
+**Input resolution vs. accuracy.** Fast-SCNN is trained on Cityscapes at 1024x2048.
+This pipeline runs at a reduced input size to fit CPU-only inference (8 GB RAM, no GPU).
+Qualitatively, the output improves as resolution increases (see the comparison below), however,
+the quantitative difference (mIoU score) has not been measured here.
+
+| Input size | Avg. Latency (mean ± std, ms) | FPS |
+| 384x768   | 143.451 ms  | 6.971 FPS |
+| 768x1536  | 481.636 ms  | 2.07626 FPS |
+
+**Domain gap.** The weights are the pretrained Cityscapes checkpoint from the original
+repository. Cityscapes is windshield-height, forward-facing footage, so results degrade
+on elevated or non-dashcam views (e.g. a portrait phone video filmed from a window).
 
 ## Requirements
 
