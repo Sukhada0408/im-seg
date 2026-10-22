@@ -44,6 +44,7 @@ Qualitatively, the output improves as resolution increases (see the comparison b
 the quantitative difference (mIoU score) has not been measured here.
 
 | Input size | Avg. Latency (mean ± std, ms) | FPS |
+|---|---|---|
 | 384x768   | 143.451 ms  | 6.971 FPS |
 | 768x1536  | 481.636 ms  | 2.07626 FPS |
 
